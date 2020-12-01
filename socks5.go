@@ -114,12 +114,21 @@ func (s *Server) Serve(l net.Listener) error {
 		}
 		go s.ServeConn(conn)
 	}
-	return nil
 }
 
 // ServeConn is used to serve a single connection.
 func (s *Server) ServeConn(conn net.Conn) error {
 	defer conn.Close()
+
+	// Check client ip is valid
+	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		ip := s.config.BindIP.String()
+		if ip != "" && client.IP.String() != ip {
+			s.config.Logger.Printf("[ERR] socks: Only %s can use this server", ip)
+			return fmt.Errorf("Only %s can use this server", ip)
+		}
+	}
+
 	bufConn := bufio.NewReader(conn)
 
 	// Read the version byte
