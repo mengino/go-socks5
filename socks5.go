@@ -122,8 +122,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 
 	// Check client ip is valid
 	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		ip := s.config.BindIP.String()
-		if ip != "" && client.IP.String() != ip {
+		if ip := s.config.BindIP.String(); ip != "" && client.IP.String() != ip {
 			s.config.Logger.Printf("[ERR] socks: Only %s can use this server", ip)
 			return fmt.Errorf("Only %s can use this server", ip)
 		}
