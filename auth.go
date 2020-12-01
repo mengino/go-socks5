@@ -3,6 +3,7 @@ package socks5
 import (
 	"fmt"
 	"io"
+	"net"
 )
 
 const (
@@ -17,6 +18,7 @@ const (
 var (
 	UserAuthFailed  = fmt.Errorf("User authentication failed")
 	NoSupportedAuth = fmt.Errorf("No supported authentication mechanism")
+	NoInvalidClient = fmt.Errorf("No supported this client")
 )
 
 // A Request encapsulates authentication state provided
@@ -107,6 +109,18 @@ func (a UserPassAuthenticator) Authenticate(reader io.Reader, writer io.Writer) 
 
 	// Done
 	return &AuthContext{UserPassAuth, map[string]string{"Username": string(user)}}, nil
+}
+
+// validClientIP is used to filter client ip is allowed use this server
+func (s *Server) validClientIP(conn net.Conn) error {
+	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		if ip := s.config.AllowIP.String(); ip != "<nil>" && client.IP.String() != ip {
+			conn.Write([]byte{socks5Version, noAcceptable})
+			return NoInvalidClient
+		}
+	}
+
+	return nil
 }
 
 // authenticate is used to handle connection authentication

@@ -48,6 +48,9 @@ type Config struct {
 
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
+
+	// Allowlist for client ip
+	AllowIP net.IP
 }
 
 // Server is reponsible for accepting connections and handling
@@ -119,15 +122,6 @@ func (s *Server) Serve(l net.Listener) error {
 // ServeConn is used to serve a single connection.
 func (s *Server) ServeConn(conn net.Conn) error {
 	defer conn.Close()
-
-	// Check client ip is valid
-	if client, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		if ip := s.config.BindIP.String(); ip != "" && client.IP.String() != ip {
-			s.config.Logger.Printf("[ERR] socks: Only %s can use this server", ip)
-			return fmt.Errorf("Only %s can use this server", ip)
-		}
-	}
-
 	bufConn := bufio.NewReader(conn)
 
 	// Read the version byte
@@ -140,6 +134,13 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	// Ensure we are compatible
 	if version[0] != socks5Version {
 		err := fmt.Errorf("Unsupported SOCKS version: %v", version)
+		s.config.Logger.Printf("[ERR] socks: %v", err)
+		return err
+	}
+
+	// Valid client ip
+	if err := s.validClientIP(conn); err != nil {
+		err = fmt.Errorf("Failed to authenticate: %v", err)
 		s.config.Logger.Printf("[ERR] socks: %v", err)
 		return err
 	}
